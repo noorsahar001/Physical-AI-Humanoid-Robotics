@@ -11,7 +11,7 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://physical-ai-humanoid-robotics-three.vercel.app/',
+  url: 'https://physical-ai-humanoid-robotics-g4ok.vercel.app/',
   baseUrl: '/',
 
   organizationName: 'noorsahar001', 
