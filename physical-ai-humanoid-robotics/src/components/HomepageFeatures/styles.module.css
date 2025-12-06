@@ -1,0 +1,36 @@
+.featuresSection {
+  padding: 3rem 0;
+  background: linear-gradient(135deg, #0a0f26, #111a3a, #1a244f);
+  color: white;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.07);
+  padding: 2rem;
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+.icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.title {
+  color: #7bdcff;
+  font-weight: 700;
+}
+
+.text {
+  color: #d4e6ff;
+  font-size: 0.95rem;
+  line-height: 1.5rem;
+}

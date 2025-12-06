@@ -1,0 +1,45 @@
+/**
+ * CSS files with the .module.css suffix will be treated as CSS modules
+ * and scoped locally.
+ */
+
+.heroBanner {
+  padding: 4rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+
+  /* Navy Blue Gradient Background */
+  background: linear-gradient(135deg, #0a1020 0%, #1b2445 100%);
+  color: #e4eaf8; /* Light text for contrast */
+}
+
+@media screen and (max-width: 996px) {
+  .heroBanner {
+    padding: 2rem;
+  }
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.buttons .button {
+  background-color: #1b2a49; /* Primary Navy */
+  color: #e4eaf8;
+  border-radius: 8px;
+  padding: 0.6em 1.2em;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  box-shadow: 0 0 12px rgba(76,106,161,0.5);
+}
+
+.buttons .button:hover {
+  background-color: #27406c; /* Lighter Navy on hover */
+  box-shadow: 0 0 18px rgba(76,106,161,0.7);
+  transform: translateY(-2px);
+}
