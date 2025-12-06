@@ -13,6 +13,7 @@ const config: Config = {
 
   url: 'https://physical-ai-humanoid-robotics-g4ok.vercel.app/',
   baseUrl: '/',
+  trailingSlash: false,
 
   organizationName: 'noorsahar001', 
   projectName: 'Physical-AI-Humanoid-Robotics',
