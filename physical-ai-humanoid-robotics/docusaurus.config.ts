@@ -11,7 +11,7 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://github.com/noorsahar001', 
+  url: 'https://noorsahar001.github.io/Physical-AI-Humanoid-Robotics/',
   baseUrl: '/Physical-AI-Humanoid-Robotics/',
 
   organizationName: 'noorsahar001', 
