@@ -1,0 +1,488 @@
+openapi: 3.1.0
+info:
+  title: Physical AI & Humanoid Robotics Chatbot API - Subagent Extension
+  description: |
+    API for the RAG chatbot with subagent support for the Physical AI & Humanoid Robotics book.
+    This specification extends the base RAG chatbot API with subagent routing and management endpoints.
+  version: 2.0.0
+  contact:
+    name: API Support
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+tags:
+  - name: chat
+    description: Chat endpoints with subagent routing
+  - name: agents
+    description: Agent management and discovery
+  - name: health
+    description: Service health checks
+
+paths:
+  /chat:
+    post:
+      tags: [chat]
+      summary: Send a chat message with automatic agent routing
+      description: |
+        Receives a user query, routes it to the appropriate subagent, and returns a response.
+        The routing is automatic and transparent to the user.
+      operationId: chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+            examples:
+              glossary_query:
+                summary: Glossary term lookup
+                value:
+                  query: "What is a topic in ROS 2?"
+                  session_id: "abc123"
+              hardware_query:
+                summary: Hardware requirements
+                value:
+                  query: "What hardware do I need for NVIDIA Isaac?"
+                  session_id: "abc123"
+              module_query:
+                summary: Module concept explanation
+                value:
+                  query: "How does perception work in Isaac?"
+                  session_id: "abc123"
+              capstone_query:
+                summary: Capstone project guidance
+                value:
+                  query: "What are the capstone project milestones?"
+                  session_id: "abc123"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chat/stream:
+    post:
+      tags: [chat]
+      summary: Stream a chat response with agent routing
+      description: |
+        Same as /chat but returns a streaming response using Server-Sent Events.
+        Includes agent attribution in the stream.
+      operationId: chatStream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Streaming response
+          content:
+            text/event-stream:
+              schema:
+                $ref: '#/components/schemas/ChatStreamChunk'
+
+  /chat/route:
+    post:
+      tags: [chat]
+      summary: Get routing decision without executing
+      description: |
+        Returns the routing decision for a query without executing it.
+        Useful for debugging and understanding agent selection.
+      operationId: getRouteDecision
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RouteRequest'
+      responses:
+        '200':
+          description: Routing decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteResponse'
+
+  /agents:
+    get:
+      tags: [agents]
+      summary: List all registered agents
+      description: Returns information about all registered subagents.
+      operationId: listAgents
+      responses:
+        '200':
+          description: List of agents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentListResponse'
+
+  /agents/{agent_name}:
+    get:
+      tags: [agents]
+      summary: Get agent details
+      description: Returns detailed information about a specific agent.
+      operationId: getAgent
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Agent identifier (e.g., "glossary", "hardware")
+      responses:
+        '200':
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentDetailResponse'
+        '404':
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agents/{agent_name}/chat:
+    post:
+      tags: [agents]
+      summary: Chat with a specific agent directly
+      description: |
+        Sends a query directly to a specific agent, bypassing the router.
+        Useful for testing and when the caller knows which agent to use.
+      operationId: chatWithAgent
+      parameters:
+        - name: agent_name
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Agent identifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Agent response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '404':
+          description: Agent not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health:
+    get:
+      tags: [health]
+      summary: Health check with agent status
+      description: Returns health status including all registered agents.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: The user's question about the book
+          example: "What is a topic in ROS 2?"
+        session_id:
+          type: string
+          description: Optional session ID for multi-turn conversations
+          example: "abc123"
+        selected_text:
+          type: string
+          description: Optional text highlighted by the user
+        force_agent:
+          type: string
+          description: Optional - force routing to a specific agent
+          example: "glossary"
+
+    ChatResponse:
+      type: object
+      required:
+        - answer
+        - query_id
+        - session_id
+      properties:
+        answer:
+          type: string
+          description: The generated answer based on book content
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+          description: List of source citations
+        query_id:
+          type: string
+          description: Unique identifier for this query
+        session_id:
+          type: string
+          description: Session ID for follow-up questions
+        latency_ms:
+          type: integer
+          description: Processing time in milliseconds
+        agent_used:
+          type: string
+          description: Name of the agent that handled the query
+          example: "glossary"
+        routing_confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence score for the routing decision
+
+    Citation:
+      type: object
+      required:
+        - index
+        - source
+        - title
+      properties:
+        index:
+          type: integer
+          minimum: 1
+          description: Citation number (1-based)
+        source:
+          type: string
+          description: File path or URL to source document
+        title:
+          type: string
+          description: Document title
+        section:
+          type: string
+          description: Section within the document
+        relevance_score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Similarity score (0-1)
+
+    ChatStreamChunk:
+      type: object
+      required:
+        - type
+        - content
+        - session_id
+      properties:
+        type:
+          type: string
+          enum: [text, citation, agent, done, error]
+          description: Type of stream chunk
+        content:
+          type: string
+          description: Chunk content
+        session_id:
+          type: string
+          description: The session ID for this conversation
+
+    RouteRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: The query to route
+
+    RouteResponse:
+      type: object
+      required:
+        - primary_agent
+        - confidence
+        - reason
+      properties:
+        primary_agent:
+          type: string
+          description: Main agent selected for this query
+          example: "hardware"
+        secondary_agents:
+          type: array
+          items:
+            type: string
+          description: Additional agents for multi-domain queries
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Routing confidence score
+        reason:
+          type: string
+          description: Explanation of routing decision
+          example: "Matched hardware keywords: 'hardware', 'requirements'"
+        is_multi_domain:
+          type: boolean
+          description: Whether query spans multiple domains
+
+    AgentListResponse:
+      type: object
+      required:
+        - agents
+        - total
+      properties:
+        agents:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentSummary'
+        total:
+          type: integer
+          description: Total number of registered agents
+
+    AgentSummary:
+      type: object
+      required:
+        - name
+        - domain
+        - description
+      properties:
+        name:
+          type: string
+          description: Agent identifier
+          example: "glossary"
+        domain:
+          type: string
+          description: Domain scope
+          example: "Technical term definitions"
+        description:
+          type: string
+          description: Human-readable description
+        keywords:
+          type: array
+          items:
+            type: string
+          description: Keywords that trigger this agent
+
+    AgentDetailResponse:
+      type: object
+      required:
+        - name
+        - domain
+        - description
+        - keywords
+        - status
+      properties:
+        name:
+          type: string
+        domain:
+          type: string
+        description:
+          type: string
+        keywords:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, inactive, error]
+        stats:
+          type: object
+          properties:
+            queries_handled:
+              type: integer
+            avg_latency_ms:
+              type: integer
+            avg_confidence:
+              type: number
+              format: float
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+          description: Overall health status
+        services:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ServiceStatus'
+        agents:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [active, inactive, error]
+          description: Status of each registered agent
+        timestamp:
+          type: string
+          format: date-time
+          description: Health check timestamp
+
+    ServiceStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [up, down, degraded]
+        latency_ms:
+          type: integer
+        error:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          enum:
+            - INVALID_QUERY
+            - NO_CONTENT_FOUND
+            - AGENT_NOT_FOUND
+            - ROUTING_FAILED
+            - SERVICE_UNAVAILABLE
+            - INTERNAL_ERROR
+          description: Error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details

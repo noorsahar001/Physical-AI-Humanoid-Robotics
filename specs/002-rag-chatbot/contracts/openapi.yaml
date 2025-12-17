@@ -1,0 +1,357 @@
+openapi: 3.1.0
+info:
+  title: RAG Chatbot API
+  description: API for the Physical AI & Humanoid Robotics Book RAG Chatbot
+  version: 1.0.0
+  contact:
+    name: RAG Chatbot Support
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+  - url: https://api.example.com
+    description: Production server (placeholder)
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Check the health status of all system components
+      operationId: healthCheck
+      tags:
+        - System
+      responses:
+        '200':
+          description: All services operational
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: One or more services unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /chat:
+    post:
+      summary: Send a chat message
+      description: Submit a question about the book and receive an answer with citations
+      operationId: chat
+      tags:
+        - Chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Successful response with answer and citations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /chat/stream:
+    post:
+      summary: Send a chat message with streaming response
+      description: Submit a question and receive streamed response chunks via SSE
+      operationId: chatStream
+      tags:
+        - Chat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      responses:
+        '200':
+          description: Server-sent events stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: SSE stream of ChatStreamChunk events
+
+  /ingest:
+    post:
+      summary: Ingest book content
+      description: Process and ingest book documents into the vector store
+      operationId: ingestContent
+      tags:
+        - Ingestion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngestRequest'
+      responses:
+        '200':
+          description: Ingestion completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Ingestion failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ingest/status:
+    get:
+      summary: Get ingestion status
+      description: Check the current status of ingested documents
+      operationId: getIngestStatus
+      tags:
+        - Ingestion
+      responses:
+        '200':
+          description: Current ingestion status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestStatusResponse'
+
+components:
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+          description: The user's question about the book
+          minLength: 1
+          maxLength: 2000
+          example: "What is ROS 2 and how does it work?"
+        session_id:
+          type: string
+          format: uuid
+          description: Optional session ID for multi-turn conversations
+          nullable: true
+
+    ChatResponse:
+      type: object
+      required:
+        - answer
+        - citations
+        - query_id
+      properties:
+        answer:
+          type: string
+          description: The generated answer based on book content
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+          description: List of source citations
+        query_id:
+          type: string
+          format: uuid
+          description: Unique identifier for this query
+        session_id:
+          type: string
+          format: uuid
+          description: Session ID for follow-up questions
+        latency_ms:
+          type: integer
+          description: Processing time in milliseconds
+
+    Citation:
+      type: object
+      required:
+        - index
+        - source
+        - title
+      properties:
+        index:
+          type: integer
+          description: Citation number (1-based)
+          minimum: 1
+        source:
+          type: string
+          description: File path or URL to source document
+        title:
+          type: string
+          description: Document title
+        section:
+          type: string
+          description: Section within the document
+          nullable: true
+        relevance_score:
+          type: number
+          format: float
+          description: Similarity score (0-1)
+          minimum: 0
+          maximum: 1
+
+    ChatStreamChunk:
+      type: object
+      required:
+        - type
+        - content
+      properties:
+        type:
+          type: string
+          enum: [text, citation, done, error]
+          description: Type of stream chunk
+        content:
+          type: string
+          description: Chunk content (text fragment, citation JSON, or error message)
+        session_id:
+          type: string
+          format: uuid
+          description: Session ID
+
+    IngestRequest:
+      type: object
+      properties:
+        docs_path:
+          type: string
+          description: Path to documents folder (defaults to configured path)
+          default: "./physical-ai-humanoid-robotics/docs"
+        force_reingest:
+          type: boolean
+          description: Force re-ingestion of all documents
+          default: false
+
+    IngestResponse:
+      type: object
+      required:
+        - status
+        - documents_processed
+        - chunks_created
+      properties:
+        status:
+          type: string
+          enum: [success, partial, failed]
+        documents_processed:
+          type: integer
+          description: Number of documents successfully processed
+        chunks_created:
+          type: integer
+          description: Total chunks created
+        errors:
+          type: array
+          items:
+            type: string
+          description: List of error messages for failed documents
+
+    IngestStatusResponse:
+      type: object
+      required:
+        - total_documents
+        - total_chunks
+        - last_ingested
+      properties:
+        total_documents:
+          type: integer
+        total_chunks:
+          type: integer
+        last_ingested:
+          type: string
+          format: date-time
+          nullable: true
+        collection_status:
+          type: string
+          enum: [ready, empty, error]
+
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - services
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        services:
+          type: object
+          properties:
+            api:
+              $ref: '#/components/schemas/ServiceStatus'
+            qdrant:
+              $ref: '#/components/schemas/ServiceStatus'
+            llm:
+              $ref: '#/components/schemas/ServiceStatus'
+        timestamp:
+          type: string
+          format: date-time
+
+    ServiceStatus:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [up, down, degraded]
+        latency_ms:
+          type: integer
+          description: Service response time
+        error:
+          type: string
+          description: Error message if service is down
+          nullable: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+          enum:
+            - INVALID_QUERY
+            - NO_CONTENT_FOUND
+            - SERVICE_UNAVAILABLE
+            - INTERNAL_ERROR
+            - INGESTION_FAILED
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          description: Additional error details
+          nullable: true
+
+tags:
+  - name: Chat
+    description: Chat and question-answering endpoints
+  - name: Ingestion
+    description: Content ingestion and management
+  - name: System
+    description: System health and status
