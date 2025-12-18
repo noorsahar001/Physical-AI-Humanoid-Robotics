@@ -15,7 +15,7 @@ interface ChatResponseChunk {
 
 // API URL - configure based on environment
 const API_BASE_URL = typeof window !== 'undefined'
-  ? (window as any).CHATBOT_API_URL || 'http://localhost:8000/api/chatbot'
+  ? (window as any).CHATBOT_API_URL || 'https://noorsahar-robotics-books-backend.hf.space/api/chatbot'
   : 'http://localhost:8000/api/chatbot';
 
 // Simple UUID generator
