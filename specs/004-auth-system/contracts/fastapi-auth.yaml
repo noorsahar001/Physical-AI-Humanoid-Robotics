@@ -1,0 +1,160 @@
+openapi: 3.0.3
+info:
+  title: FastAPI Authentication Endpoints
+  description: |
+    FastAPI backend endpoints for session validation and protected resources.
+    These endpoints validate Better Auth session cookies against the shared database.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8000
+    description: Local FastAPI server
+  - url: https://api.physical-ai-book.com
+    description: Production API
+
+paths:
+  /api/auth/session:
+    get:
+      summary: Validate session and return user data
+      description: |
+        Validates the Better Auth session cookie against the shared database.
+        Used by frontend to check authentication status when Better Auth server is unavailable.
+      operationId: validateSession
+      tags:
+        - Authentication
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Session valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionUser'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/me:
+    get:
+      summary: Get current authenticated user
+      description: Returns user data for the current session
+      operationId: getCurrentUser
+      tags:
+        - Authentication
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: User data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionUser'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/chatbot/chat:
+    post:
+      summary: Chat with RAG chatbot (protected)
+      description: |
+        Existing chatbot endpoint. When user is authenticated,
+        response can include personalized features.
+      operationId: chatWithBot
+      tags:
+        - Chatbot
+      security:
+        - sessionCookie: []
+        - anonymous: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  type: string
+                  example: "What is ROS 2?"
+      responses:
+        '200':
+          description: Chat response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answer:
+                    type: string
+                  citations:
+                    type: array
+                    items:
+                      type: string
+                  authenticated:
+                    type: boolean
+                    description: Whether user was authenticated
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: better-auth.session_token
+      description: HTTP-only session cookie from Better Auth
+    anonymous:
+      type: http
+      scheme: basic
+      description: Allow anonymous access (no auth required)
+
+  schemas:
+    SessionUser:
+      type: object
+      required:
+        - id
+        - email
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          nullable: true
+          example: "John Doe"
+        authenticated:
+          type: boolean
+          example: true
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          enum:
+            - NOT_AUTHENTICATED
+            - INVALID_SESSION
+            - SESSION_EXPIRED
+          example: "NOT_AUTHENTICATED"
+        message:
+          type: string
+          example: "Not authenticated"
+        details:
+          type: object
+          nullable: true
+          additionalProperties: true

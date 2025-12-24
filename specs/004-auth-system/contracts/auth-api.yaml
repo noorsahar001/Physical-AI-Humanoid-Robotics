@@ -1,0 +1,246 @@
+openapi: 3.0.3
+info:
+  title: Authentication API
+  description: |
+    Better Auth server API endpoints for the Physical AI Book authentication system.
+    These endpoints are handled by Better Auth automatically when mounted at `/api/auth/*`.
+  version: 1.0.0
+  contact:
+    name: Physical AI Book Team
+
+servers:
+  - url: http://localhost:3001
+    description: Local Better Auth server
+  - url: https://api.physical-ai-book.com
+    description: Production Better Auth server
+
+paths:
+  /api/auth/sign-up/email:
+    post:
+      summary: Register new user with email/password
+      operationId: signUpEmail
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "user@example.com"
+                password:
+                  type: string
+                  minLength: 8
+                  example: "securepassword123"
+                name:
+                  type: string
+                  example: "John Doe"
+      responses:
+        '200':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/sign-in/email:
+    post:
+      summary: Sign in with email/password
+      operationId: signInEmail
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                rememberMe:
+                  type: boolean
+                  default: true
+                  description: Extend session persistence
+      responses:
+        '200':
+          description: Login successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Session cookie (better-auth.session_token)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/sign-out:
+    post:
+      summary: Sign out and terminate session
+      operationId: signOut
+      tags:
+        - Authentication
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Logout successful
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Cleared session cookie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+
+  /api/auth/session:
+    get:
+      summary: Get current session and user info
+      operationId: getSession
+      tags:
+        - Session
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: Session valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          description: No valid session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    type: 'null'
+                  user:
+                    type: 'null'
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: better-auth.session_token
+      description: HTTP-only session cookie set by Better Auth
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          example: "John Doe"
+        emailVerified:
+          type: boolean
+          example: false
+        image:
+          type: string
+          format: uri
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        token:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        ipAddress:
+          type: string
+          nullable: true
+        userAgent:
+          type: string
+          nullable: true
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        session:
+          $ref: '#/components/schemas/Session'
+
+    SessionResponse:
+      type: object
+      properties:
+        session:
+          $ref: '#/components/schemas/Session'
+        user:
+          $ref: '#/components/schemas/User'
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          example: "Email already exists"
+        code:
+          type: string
+          nullable: true
